@@ -1,83 +1,309 @@
-// prisma/schema.prisma
-datasource db {
-  provider  = "postgresql"
-  url  	    = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
-generator client {
-  provider = "prisma-client-js"
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+  schemas   = ["next_auth", "public"]
 }
 
 enum UserRole {
   ADMIN
   USER
+
+  @@schema("next_auth")
 }
 
 model User {
-  id            String    @id @default(cuid())
-  name          String?
-  email         String?   @unique
-  emailVerified DateTime?
-  image         String?
-  password      String?
-  role          UserRole @default(USER)
-  accounts      Account[]
-  isTwoFactorEnabled Boolean @default(false)
+  id                    String                @id @default(cuid()) @map("id")
+  name                  String?               @map("name")
+  email                 String?               @unique @map("email")
+  emailVerified         DateTime?             @map("email_verified")
+  image                 String?               @map("image")
+  password              String?               @map("password")
+  role                  UserRole              @default(USER) @map("role")
+  isTwoFactorEnabled    Boolean               @default(false) @map("is_two_factor_enabled")
   twoFactorConfirmation TwoFactorConfirmation?
+
+  twoFactorConfirmationId String?             @map("two_factor_confirmation_id")
+
+  accounts              Account[]
+  sessions              Session[]
+  passwordResetTokens   PasswordResetToken[]
+  twoFactorTokens       TwoFactorToken[]
+  verificationTokens    VerificationToken[]
+  botConfigs            BotConfig[]
+  masterTraders         MasterTrader[]
+  collaborators         Collaborator[]
+  profiles              Profile[]
+
+  @@schema("next_auth")
+  @@map("users")
 }
 
 model Account {
-  id                 String  @id @default(cuid())
-  userId             String
-  type               String
-  provider           String
-  providerAccountId  String
-  refresh_token      String?  @db.Text
-  access_token       String?  @db.Text
-  expires_at         Int?
-  token_type         String?
-  scope              String?
-  id_token           String?  @db.Text
-  session_state      String?
+  id                 String   @id @default(cuid()) @map("id")
+  userId             String   @map("user_id")
+  type               String   @map("type")
+  provider           String   @map("provider")
+  providerAccountId  String   @map("provider_account_id")
+  refreshToken       String?  @map("refresh_token") @db.Text
+  accessToken        String?  @map("access_token") @db.Text
+  expiresAt          Int?     @map("expires_at")
+  tokenType          String?  @map("token_type")
+  scope              String?  @map("scope")
+  idToken            String?  @map("id_token") @db.Text
+  sessionState       String?  @map("session_state")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([provider, providerAccountId])
+  @@schema("next_auth")
+  @@map("accounts")
 }
 
-model VerificationToken {
-  id String @id @default(cuid())
-  email String
-  token String @unique
-  expires DateTime
+model Profile {
+  id                 String   @id @default(cuid()) @map("id")
+  userId             String   @map("user_id")
+  displayName        String?  @map("display_name")
+  bio                String?  @map("bio")
+  avatarUrl          String?  @map("avatar_url")
+  location           String?  @map("location")
+  website            String?  @map("website")
 
-  @@unique([email, token])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("profiles")
+}
+
+model Session {
+  id            String   @id @default(cuid()) @map("id")
+  userId        String   @map("user_id")
+  sessionToken  String   @unique @map("session_token")
+  expires       DateTime @map("expires")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@schema("next_auth")
+  @@map("sessions")
 }
 
 model PasswordResetToken {
-  id String @id @default(cuid())
-  email String
-  token String @unique
-  expires DateTime
+  id      String   @id @default(cuid()) @map("id")
+  email   String   @map("email")
+  token   String   @unique @map("token")
+  expires DateTime @map("expires")
+
+  user    User     @relation(fields: [email], references: [email])
 
   @@unique([email, token])
+  @@schema("next_auth")
+  @@map("password_reset_tokens")
 }
 
 model TwoFactorToken {
-  id String @id @default(cuid())
-  email String
-  token String @unique
-  expires DateTime
+  id      String   @id @default(cuid()) @map("id")
+  email   String   @map("email")
+  token   String   @unique @map("token")
+  expires DateTime @map("expires")
+
+  user    User     @relation(fields: [email], references: [email])
 
   @@unique([email, token])
+  @@schema("next_auth")
+  @@map("two_factor_tokens")
 }
 
 model TwoFactorConfirmation {
-  id String @id @default(cuid())
-
-  userId String
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid()) @map("id")
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId])
+  @@schema("next_auth")
+  @@map("two_factor_confirmations")
+}
+
+model VerificationToken {
+  id      String   @id @default(cuid()) @map("id")
+  email   String   @map("email")
+  token   String   @unique @map("token")
+  expires DateTime @map("expires")
+
+  user    User     @relation(fields: [email], references: [email])
+
+  @@unique([email, token])
+  @@schema("next_auth")
+  @@map("verification_tokens")
+}
+
+
+
+model BotConfig {
+  id              String       @id @default(cuid()) @map("id")
+  userId          String       @map("user_id")
+  botName         String       @map("bot_name")
+  description     String?      @map("description")
+  initialCapital  Float        @map("initial_capital")
+  commissionFee   Float        @map("commission_fee")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assets          Asset[]
+  collaborators   Collaborator[]
+  integrations    Integration[]
+  logs            Log[]
+  notifications   Notification[]
+  riskManagement  RiskManagement[]
+  strategies      Strategy[]
+  trades          Trade[]
+
+  @@schema("public")
+  @@map("bot_configs")
+}
+
+model Asset {
+  id               String       @id @default(cuid()) @map("id")
+  botConfigId      String       @map("bot_config_id")
+  assetName        String       @map("asset_name")
+  allocation       Float        @map("allocation")
+  positionSizeLimit Float       @map("position_size_limit")
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  botConfig        BotConfig    @relation(fields: [botConfigId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("assets")
+}
+
+model Collaborator {
+  id             String     @id @default(cuid()) @map("id")
+  botConfigId    String     @map("bot_config_id")
+  userId         String     @map("user_id")
+  role           String     @map("role")
+  permissions    String[]   @map("permissions")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  botConfig      BotConfig  @relation(fields: [botConfigId], references: [id], onDelete: Cascade)
+  user           User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("collaborators")
+}
+
+model Integration {
+  id                   String     @id @default(cuid()) @map("id")
+  botConfigId          String     @map("bot_config_id")
+  broker               Json       @map("broker")
+  marketData           Json       @map("market_data")
+  analytics            Json       @map("analytics")
+  brokerPublicKeyId    String?    @map("broker_public_key_id")
+  brokerPrivateKeyId   String?    @map("broker_private_key_id")
+  marketDataPublicKeyId String?   @map("market_data_public_key_id")
+  marketDataPrivateKeyId String?  @map("market_data_private_key_id")
+  analyticsPublicKeyId String?    @map("analytics_public_key_id")
+  analyticsPrivateKeyId String?   @map("analytics_private_key_id")
+  createdAt            DateTime   @default(now()) @map("created_at")
+  updatedAt            DateTime   @updatedAt @map("updated_at")
+
+  botConfig            BotConfig  @relation(fields: [botConfigId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("integrations")
+}
+
+model Log {
+  id          String     @id @default(cuid()) @map("id")
+  botConfigId String     @map("bot_config_id")
+  message     String     @map("message")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  botConfig   BotConfig  @relation(fields: [botConfigId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("logs")
+}
+
+model MasterTrader {
+  id             String     @id @default(cuid()) @map("id")
+  traderId       String     @map("trader_id")
+  traderName     String     @map("trader_name")
+  profileUrl     String?    @map("profile_url")
+  commissionFee  Float?     @map("commission_fee")
+  subscriptionFee Float?    @map("subscription_fee")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  trader         User       @relation(fields: [traderId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("master_traders")
+}
+
+model Notification {
+  id          String     @id @default(cuid()) @map("id")
+  botConfigId String     @map("bot_config_id")
+  message     String     @map("message")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  botConfig   BotConfig  @relation(fields: [botConfigId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("notifications")
+}
+
+model RiskManagement {
+  id                String     @id @default(cuid()) @map("id")
+  botConfigId       String     @map("bot_config_id")
+  maxDrawdown       Float      @map("max_drawdown")
+  maxPositionSize   Float      @map("max_position_size")
+  stopLoss          Float?     @map("stop_loss")
+  takeProfit        Float?     @map("take_profit")
+  trailingStop      Float?     @map("trailing_stop")
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  botConfig         BotConfig  @relation(fields: [botConfigId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("risk_management")
+}
+
+model Strategy {
+  id             String     @id @default(cuid()) @map("id")
+  botConfigId    String     @map("bot_config_id")
+  strategyName   String     @map("strategy_name")
+  description    String?    @map("description")
+  conditions     Json       @map("conditions")
+  actions        Json       @map("actions")
+  combineLogic   String     @map("combine_logic")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+
+  botConfig      BotConfig  @relation(fields: [botConfigId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("strategies")
+}
+
+model Trade {
+  id             String     @id @default(cuid()) @map("id")
+  botConfigId    String     @map("bot_config_id")
+  symbol         String     @map("symbol")
+  side           String     @map("side")
+  amount         Float      @map("amount")
+  response       Json       @map("response")
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  botConfig      BotConfig  @relation(fields: [botConfigId], references: [id], onDelete: Cascade)
+
+  @@schema("public")
+  @@map("trades")
 }
